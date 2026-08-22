@@ -1,4 +1,12 @@
+<div align="center">
+
+<img src="assets/readme/nixnet-hero.svg" alt="A persistent Git-backed host identity moving from an old machine to a fresh replacement" width="100%">
+
 # nixnet
+
+### Machines are replaceable. Identity is not.
+
+</div>
 
 A Git-backed host identity and continuity framework for Ubuntu-based Linux ecosystems.
 
@@ -29,6 +37,19 @@ Re-running is safe — it pulls latest code and refreshes enrollment.
 
 ### What Enrollment Does
 
+```mermaid
+flowchart LR
+    BOOT["bootstrap"] --> DISCOVER["discover private world"]
+    DISCOVER --> CASE{"hostname identity"}
+    CASE -->|"new"| CREATE["create + claim"]
+    CASE -->|"dormant"| RECLAIM["archive claim + reclaim"]
+    CASE -->|"already enrolled"| REFRESH["refresh claim"]
+    CREATE --> CAPTURE["capture environment"]
+    RECLAIM --> CAPTURE
+    REFRESH --> CAPTURE
+    CAPTURE --> APPLY["convergent apply"]
+```
+
 - **New machine, no existing identity:** Creates `hosts/<hostname>/identity.yaml` in the world repo, claims it, applies config.
 - **New machine, dormant identity exists:** Auto-reclaims the identity, archives the old claim to `claim-history.txt`, sets lifecycle to `active`.
 - **Already enrolled machine:** Refreshes the claim, re-applies config. Self-healing.
@@ -45,6 +66,16 @@ Re-running is safe — it pulls latest code and refreshes enrollment.
 - **Apply and sync are separate.** `apply` = local convergence (no network). `sync` = git coordination (explicit network).
 
 ## Architecture
+
+```mermaid
+flowchart TB
+    ENGINE["Public engine repo<br/>CLI · libraries · schema"]
+    WORLD["Private world repo<br/>identities · config · history"]
+    LOCAL["Local runtime<br/>receipt · cache · state"]
+    ENGINE --> HOST["Enrolled machine"]
+    WORLD <--> HOST
+    HOST <--> LOCAL
+```
 
 nixnet uses two repositories:
 
@@ -134,6 +165,12 @@ hosts/<hostname>/
 
 ## Sync Behavior
 
+```mermaid
+flowchart LR
+    V["1 Validate"] --> C["2 Capture"] --> A["3 Auto-commit"] --> D["4 Dirty policy"] --> P["5 Pull --rebase"] --> U["6 Push"]
+    D -. shared or foreign changes .-> STOP["abort safely"]
+```
+
 `nixnet sync` coordinates the world repo with the remote:
 
 1. **Validate** — confirms world is a git repo with a remote
@@ -145,6 +182,17 @@ hosts/<hostname>/
 5. **Push** — `git push`
 
 ## Lifecycle States
+
+```mermaid
+stateDiagram-v2
+    [*] --> active: enroll
+    active --> dormant
+    dormant --> active: automatic reclaim
+    active --> retired
+    dormant --> retired
+    retired --> destroyed
+    destroyed --> [*]
+```
 
 | State | Meaning |
 |-------|---------|
